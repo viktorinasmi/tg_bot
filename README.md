@@ -35,7 +35,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 <p float="left" align="middle">
-<img height="250" src="./README/tg.png"/>
+<img height="650" src="./README/tg.png"/>
 </p>
 
 
