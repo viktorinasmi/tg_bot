@@ -13,24 +13,6 @@ import { IContext } from './context.interface';
 import { actionButtons } from './app.buttons';
 import { showList } from './utils/app.utils';
 
-const todos = [
-  {
-    id: 1,
-    name: 'Buy goods',
-    isCompleted: false,
-  },
-  {
-    id: 2,
-    name: 'Go to walk',
-    isCompleted: false,
-  },
-  {
-    id: 3,
-    name: 'Travel',
-    isCompleted: true,
-  },
-];
-
 @Update()
 export class AppUpdate {
   constructor(
@@ -44,20 +26,40 @@ export class AppUpdate {
     await ctx.reply('Что ты хочешь сделать?', actionButtons()); //replyWithHtml -  дизайн
   }
 
-  @Hears('📃 Список дел')
-  async listTask(ctx: IContext) {
-    // const isCompleted = (state: boolean) => (state ? '✅ ' : '🔘');
-    // const todoList = todos.map(
-    // );
-    // const showList = `Твой список задач: \n\n ${todoList.join(' ')}`;
+  @Hears('⚡️ Создать задачу')
+  async createTask(ctx: IContext) {
+    ctx.session.type = 'create';
+    await ctx.reply('Опиши задачу: ');
+  }
 
+  @Hears('📃 Список задач')
+  async listTask(ctx: IContext) {
+    const todos = await this.appService.getAll();
     await ctx.reply(showList(todos));
   }
 
   @Hears('✅ Завершить')
-  async doneTask(ctx: IContext) {
-    await ctx.reply('Напиши ID задачи:');
+  async editTask(ctx: IContext) {
     ctx.session.type = 'done';
+    await ctx.deleteMessage(); //удаление предыдущего сообщения
+    await ctx.reply('Напиши ID задачи:');
+  }
+
+  @Hears('✏️ Редактировать')
+  async doneTask(ctx: IContext) {
+    ctx.session.type = 'edit';
+    await ctx.deleteMessage();
+    await ctx.replyWithHTML(
+      'Напиши ID и новое название задачи: \n\n' +
+        'В формате - <b>1 | Новое название</b>',
+    );
+  }
+
+  @Hears('❌ Удалить')
+  async deleteTask(ctx: IContext) {
+    ctx.session.type = 'remove';
+    await ctx.deleteMessage();
+    await ctx.reply('Напиши ID задачи:');
   }
 
   @On('text')
@@ -65,18 +67,47 @@ export class AppUpdate {
     if (!ctx.session.type) return;
 
     if (ctx.session.type === 'done') {
-      const todo = todos.find((t) => t.id === Number(message));
+      const todos = await this.appService.doneTask(Number(message));
 
       //task no exist
-      if (!todo) {
+      if (!todos) {
         await ctx.deleteMessage();
         await ctx.reply('Задача с таким id не найдена!');
         return;
       }
 
-      todo.isCompleted = !todo.isCompleted;
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+      await ctx.reply(showList(todos));
+    }
+
+    if (ctx.session.type === 'create') {
+      const todos = await this.appService.createTask(message);
+      await ctx.reply(showList(todos));
+    }
+
+    if (ctx.session.type === 'edit') {
+      const [taskId, taskName] = message.split(' | ');
+      const todos = await this.appService.editTask(Number(taskId), taskName);
+
+      //task no exist
+      if (!todos) {
+        await ctx.deleteMessage();
+        await ctx.reply('Задача с таким id не найдена!');
+        return;
+      }
+
+      await ctx.reply(showList(todos));
+    }
+
+    if (ctx.session.type === 'remove') {
+      const todos = await this.appService.deleteTask(Number(message));
+
+      //task no exist
+      if (!todos) {
+        await ctx.deleteMessage();
+        await ctx.reply('Задача с таким id не найдена!');
+        return;
+      }
+
       await ctx.reply(showList(todos));
     }
   }
